@@ -1,23 +1,45 @@
 # Web Seller Site
 
-A responsive, single-owner digital products storefront starter.
+Single-owner digital products storefront. The existing navy/blue/yellow storefront styling and layout are retained. The backend foundation uses Express, Prisma and PostgreSQL (Neon-compatible).
 
-## Included
-- `index.html`: storefront, product categories, search, featured product cards and demo cart.
-- `admin.html`: owner product-management form concept (not connected to a backend).
+## Features in this branch
+- PostgreSQL data model for owner, products, orders, line items, payments and webhook events.
+- Owner login using bcrypt password hashes and signed JWT bearer tokens.
+- Owner-only product create, edit, archive and inventory APIs.
+- Public product catalogue API.
+- Checkout with server-calculated totals (never trust prices sent by the browser).
+- Payment adapters for Flutterwave, Stripe Checkout and MTN MoMo Collections.
+- Server-side payment confirmation: Flutterwave transaction verification, Stripe signed webhook and MTN status lookup.
+- Basic API hardening: Helmet, CORS allowlist, JSON size limit and rate limiting.
 
-## Deploy on Vercel
-1. Import this GitHub repository into Vercel.
-2. Select **Other** as framework preset (or leave auto-detect).
-3. Leave build command and output directory empty for this static HTML starter.
-4. Deploy.
+## Local setup
+1. Use Node.js 20+ and a PostgreSQL database (Neon works).
+2. Copy `.env.example` to `.env`. Set DATABASE_URL (pooled Neon URL), DIRECT_URL (direct Neon URL), JWT_SECRET (32+ random characters), ADMIN_EMAIL and a strong ADMIN_PASSWORD (12+ characters).
+3. Run `npm install`.
+4. Run `npm run db:dev -- --name initial` to generate and apply the initial migration in development.
+5. Run `npm run db:seed` to create/update the single owner account.
+6. Run `npm run dev`; health endpoint is `/api/health`.
 
-## Important limitations
-This is a frontend prototype. It does not yet have customer/admin authentication, a database, real checkout, payment verification, order history, or protected digital downloads. Sample products and RWF prices are placeholders.
+For production, commit the generated migration directory and run `npm run db:migrate` as a release step. Do not use `prisma db push` as the production migration process.
 
-Before accepting real payments, implement:
-- Server-side owner-only authentication and authorization.
-- Database-backed products, customers and orders.
-- Payment gateway integration with verified server-side webhooks.
-- Private file storage and expiring download links issued only after confirmed payment.
-- Order emails, support, terms and privacy policy.
+## API
+- `POST /api/auth/login` — owner sign-in; returns a bearer token.
+- `GET /api/auth/me` — validate owner session.
+- `GET /api/products` — active products; optional `q` and `category`.
+- `GET /api/products/admin/all` — owner inventory.
+- `POST /api/products`, `PATCH /api/products/:id`, `DELETE /api/products/:id` — owner-only CRUD; delete archives.
+- `POST /api/orders/checkout` — body: `{email,name?,phone?,provider,items:[{productId,quantity}]}`.
+- `GET /api/orders/:orderNumber` — customer-facing order status.
+- `GET /api/orders/admin/all` — owner order list.
+- `POST /api/payments/webhooks/flutterwave` — signed webhook then transaction verification.
+- `POST /api/payments/webhooks/stripe` — signed raw-body webhook.
+- `GET /api/payments/mtn/:paymentId/status` — query MTN payment status.
+
+## Payment setup
+Configure only gateways for which your merchant account has active credentials and Rwanda/currency support. Set the Flutterwave webhook URL to `https://YOUR_API_HOST/api/payments/webhooks/flutterwave` and configure the webhook hash. Set Stripe webhook URL to `https://YOUR_API_HOST/api/payments/webhooks/stripe` and subscribe to `checkout.session.completed`. MTN MoMo needs the Collections product subscription, API user/key and correct target environment. Use sandbox credentials first. Provider availability, settlement currencies, fees and approval depend on your merchant account. Never expose provider secrets in frontend files.
+
+## Deploy
+Deploy the API to a persistent Node host (for example Render) with build command `npm install`, start command `npm start`, and environment variables from `.env.example`. Configure exact storefront origins in CORS_ORIGINS. Run `npm run db:migrate` and `npm run db:seed` after the migration is committed. Deploy the static storefront to Vercel and set `window.WEB_SELLER_API_BASE` in `api-config.js` to the API origin ending in `/api`.
+
+## Not yet production-complete
+This is a backend and integration foundation, not proof of live credentials or deployed infrastructure. Before taking live orders, complete the migration, wire/test the storefront and admin pages, add private object storage with expiring download grants, email receipts, refunds/reconciliation, audit logs, backups, monitoring, privacy/terms pages and provider sandbox tests. Never release digital files based on a browser redirect; grant downloads only after confirmed server-side payment.

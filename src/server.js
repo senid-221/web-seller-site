@@ -1,0 +1,26 @@
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import {rateLimit} from "express-rate-limit";
+import {config} from "./config.js";
+import {prisma} from "./db.js";
+import auth from "./routes/auth.js";
+import products from "./routes/products.js";
+import orders from "./routes/orders.js";
+import payments from "./routes/payments.js";
+const app=express();
+app.set("trust proxy",1);
+app.use(helmet({crossOriginResourcePolicy:{policy:"cross-origin"}}));
+app.use(cors({origin(origin,cb){if(!origin||config.corsOrigins.includes(origin))return cb(null,true);cb(new Error("Origin not allowed"));},methods:["GET","POST","PATCH","DELETE"],allowedHeaders:["Content-Type","Authorization","Stripe-Signature","verif-hash"]}));
+app.use("/api/payments/webhooks/stripe",express.raw({type:"application/json",limit:"1mb"}));
+app.use(express.json({limit:"1mb"}));
+app.use(rateLimit({windowMs:15*60*1000,limit:180,standardHeaders:"draft-8",legacyHeaders:false}));
+app.get("/api/health",async(_req,res)=>{await prisma.$queryRaw`SELECT 1`;res.json({status:"ok",database:"connected"});});
+app.use("/api/auth",auth);
+app.use("/api/products",products);
+app.use("/api/orders",orders);
+app.use("/api/payments",payments);
+app.use((err,_req,res,_next)=>{console.error(err);if(res.headersSent)return;res.status(500).json({error:config.NODE_ENV==="production"?"Internal server error":err.message});});
+const server=app.listen(config.PORT,()=>console.log("Web Seller Site API listening on "+config.PORT));
+async function stop(){server.close();await prisma.$disconnect();process.exit(0);}
+process.on("SIGTERM",stop);process.on("SIGINT",stop);
