@@ -7,7 +7,7 @@ export async function startPayment({provider,paymentId,order,customer}){
  const amount=order.total;
  if(provider==="FLUTTERWAVE"){
   if(!config.FLUTTERWAVE_SECRET_KEY)throw new Error("Flutterwave is not configured");
-  const d=await json(`${config.FLUTTERWAVE_BASE_URL}/payments`,{method:"POST",headers:{Authorization:`Bearer ${config.FLUTTERWAVE_SECRET_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({tx_ref:paymentId,amount,currency:order.currency,redirect_url:`${config.APP_URL}/api/payments/return`,customer:{email:customer.email,name:customer.name||"Customer"},customizations:{title:"Web Seller Site",description:`Order ${order.orderNumber}`},meta:{orderId:order.id}})});
+  const d=await json(`${config.FLUTTERWAVE_BASE_URL}/payments`,{method:"POST",headers:{Authorization:`Bearer ${config.FLUTTERWAVE_SECRET_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({tx_ref:paymentId,amount,currency:order.currency,redirect_url:`${config.STOREFRONT_URL}/?payment=return&order=${order.orderNumber}`,customer:{email:customer.email,name:customer.name||"Customer"},customizations:{title:"Web Seller Site",description:`Order ${order.orderNumber}`},meta:{orderId:order.id}})});
   return{url:d.data?.link,reference:paymentId,raw:d};
  }
  if(provider==="STRIPE"){
