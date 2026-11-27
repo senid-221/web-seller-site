@@ -22,7 +22,7 @@ const schema=z.object({
  MTN_MOMO_API_USER:z.string().optional(),
  MTN_MOMO_API_KEY:z.string().optional(),
  MTN_MOMO_TARGET_ENVIRONMENT:z.string().default("sandbox"),
- MTN_MOMO_CALLBACK_URL:z.string().url().optional()
+ MTN_MOMO_CALLBACK_URL:z.string().url().or(z.literal("")).optional()
 });
 const parsed=schema.safeParse(process.env);
 if(!parsed.success){console.error("Invalid environment configuration:",parsed.error.flatten().fieldErrors);process.exit(1)}
